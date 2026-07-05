@@ -3,12 +3,14 @@ using UnityEngine;
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class WaterGridMesh : MonoBehaviour
 {
-    [Header("Copy Size From Collider")]
+    [Header("Position Source")]
     [SerializeField] private BoxCollider waterCollider;
+    [SerializeField] private bool copyPositionFromCollider = true;
 
-    [Header("Manual Size")]
-    [SerializeField] private float width = 20f;
-    [SerializeField] private float length = 20f;
+    [Header("Size")]
+    [SerializeField] private bool copySizeFromCollider = false;
+    [SerializeField] private float width = 40f;
+    [SerializeField] private float length = 40f;
 
     [Header("Resolution")]
     [SerializeField] private int xSegments = 100;
@@ -24,10 +26,23 @@ public class WaterGridMesh : MonoBehaviour
     {
         if (waterCollider != null)
         {
-            width = waterCollider.size.x * waterCollider.transform.lossyScale.x;
-            length = waterCollider.size.z * waterCollider.transform.lossyScale.z;
+            if (copyPositionFromCollider)
+            {
+                transform.position = new Vector3(
+                    waterCollider.bounds.center.x,
+                    transform.position.y,
+                    waterCollider.bounds.center.z
+                );
+            }
+
+            if (copySizeFromCollider)
+            {
+                width = waterCollider.bounds.size.x;
+                length = waterCollider.bounds.size.z;
+            }
         }
 
+        transform.rotation = Quaternion.identity;
         transform.localScale = Vector3.one;
 
         Mesh mesh = new Mesh();

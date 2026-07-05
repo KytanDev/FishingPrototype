@@ -1,100 +1,139 @@
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(SphereCollider))]
 public class FloatBuoyancy : MonoBehaviour
 {
-    [Header("State")]
-    [SerializeField] private FloatWaterState waterState = FloatWaterState.Airborne;
-
     [Header("References")]
     [SerializeField] private GerstnerWater water;
-    [SerializeField] private PoleController poleController;
 
-    [Header("Float Sitting Height")]
-    [SerializeField] private float surfaceOffset = 0.25f;
+    [Header("Buoyancy")]
+    [SerializeField] private float maxBuoyancyForce = 0.7f;
+
+    [Header("Water Damping")]
+    [SerializeField] private float verticalDamping = 1.8f;
+    [SerializeField] private float horizontalDamping = 0.5f;
 
     [Header("Debug")]
-    [SerializeField] private float currentWaterHeight;
-    [SerializeField] private float currentSubmergedPercent;
+    [SerializeField] private float waterHeight;
+    [SerializeField] private float sphereBottomY;
+    [SerializeField] private float sphereTopY;
+    [SerializeField] private float submergedPercent;
+    [SerializeField] private float appliedBuoyancyForce;
 
     private Rigidbody rb;
-    private PoleRigData rigData;
+    private SphereCollider sphere;
+    private float radius;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        sphere = GetComponent<SphereCollider>();
     }
 
     private void Start()
     {
-        rigData = poleController.RigData;
+        radius = sphere.radius * transform.lossyScale.y;
 
-        rb.mass = rigData.floatPart.massKg;
         rb.useGravity = true;
-
-        rb.linearDamping = rigData.airLinearDamping;
-        rb.angularDamping = rigData.airAngularDamping;
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
+        rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
     }
 
     private void FixedUpdate()
     {
-        if (waterState != FloatWaterState.InWater)
+        if (water == null)
             return;
 
         ApplyBuoyancy();
+        ApplyWaterDamping();
+        DrawDebugLines();
     }
 
     private void ApplyBuoyancy()
     {
-        if (water == null || rigData == null)
+        Vector3 center = transform.TransformPoint(sphere.center);
+
+        waterHeight = water.GetWaveHeight(center);
+
+        sphereBottomY = center.y - radius;
+        sphereTopY = center.y + radius;
+
+        submergedPercent = CalculateSubmergedPercent();
+
+        if (submergedPercent <= 0f)
+        {
+            appliedBuoyancyForce = 0f;
             return;
+        }
 
-        currentWaterHeight = water.GetWaveHeight(transform.position) + surfaceOffset;
+        appliedBuoyancyForce = maxBuoyancyForce * submergedPercent;
 
-        float floatBottom = transform.position.y - rigData.floatHeight * 0.5f;
-        float submergedDepth = currentWaterHeight - floatBottom;
-
-        currentSubmergedPercent = Mathf.Clamp01(submergedDepth / rigData.floatHeight);
-
-        if (currentSubmergedPercent <= 0f)
-            return;
-
-        float gravity = Mathf.Abs(Physics.gravity.y);
-
-        Vector3 buoyancyForce =
-            Vector3.up *
-            gravity *
-            rb.mass *
-            rigData.floatBuoyancyMultiplier *
-            currentSubmergedPercent;
-
-        float verticalVelocity = rb.linearVelocity.y;
-
-        Vector3 verticalDampingForce =
-            Vector3.down * verticalVelocity * rigData.waterVerticalDamping;
-
-        rb.AddForce(buoyancyForce + verticalDampingForce, ForceMode.Force);
+        rb.AddForceAtPosition(
+            Vector3.up * appliedBuoyancyForce,
+            center,
+            ForceMode.Force
+        );
     }
 
-    private void OnTriggerEnter(Collider other)
+    private float CalculateSubmergedPercent()
     {
-        if (!other.CompareTag("Water"))
-            return;
+        if (waterHeight <= sphereBottomY)
+            return 0f;
 
-        waterState = FloatWaterState.InWater;
+        if (waterHeight >= sphereTopY)
+            return 1f;
 
-        rb.linearDamping = rigData.waterLinearDamping;
-        rb.angularDamping = rigData.waterAngularDamping;
+        float submergedDepth = waterHeight - sphereBottomY;
+        submergedDepth = Mathf.Clamp(submergedDepth, 0f, radius * 2f);
+
+        float h = submergedDepth;
+        float r = radius;
+
+        float submergedVolume =
+            Mathf.PI * h * h * (3f * r - h) / 3f;
+
+        float totalVolume =
+            4f * Mathf.PI * r * r * r / 3f;
+
+        return Mathf.Clamp01(submergedVolume / totalVolume);
     }
 
-    private void OnTriggerExit(Collider other)
+    private void ApplyWaterDamping()
     {
-        if (!other.CompareTag("Water"))
+        if (submergedPercent <= 0f)
             return;
 
-        waterState = FloatWaterState.Airborne;
+        Vector3 velocity = rb.linearVelocity;
 
-        rb.linearDamping = rigData.airLinearDamping;
-        rb.angularDamping = rigData.airAngularDamping;
+        Vector3 verticalVelocity = Vector3.up * velocity.y;
+        Vector3 horizontalVelocity = new Vector3(velocity.x, 0f, velocity.z);
+
+        rb.AddForce(
+            -verticalVelocity * verticalDamping * submergedPercent,
+            ForceMode.Force
+        );
+
+        rb.AddForce(
+            -horizontalVelocity * horizontalDamping * submergedPercent,
+            ForceMode.Force
+        );
+    }
+
+    private void DrawDebugLines()
+    {
+        Vector3 center = transform.TransformPoint(sphere.center);
+
+        Debug.DrawLine(
+            new Vector3(center.x - 0.5f, waterHeight, center.z),
+            new Vector3(center.x + 0.5f, waterHeight, center.z),
+            Color.cyan
+        );
+
+        Debug.DrawLine(
+            new Vector3(center.x, sphereBottomY, center.z),
+            new Vector3(center.x, sphereTopY, center.z),
+            Color.yellow
+        );
     }
 }

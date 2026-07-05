@@ -15,6 +15,6 @@ public class CinemachineInputBlocker : MonoBehaviour
         if (inputController == null)
             return;
 
-        inputController.enabled = !PlayerController.RodControlMode;
+        inputController.enabled = !PlayerState.RodControlMode;
     }
 }

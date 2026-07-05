@@ -1968,7 +1968,7 @@
     "m_Value": {
         "x": 0.0,
         "y": 0.5188679099082947,
-        "z": 0.4454571306705475
+        "z": 0.48235294222831728
     },
     "m_DefaultValue": {
         "x": 0.5,
@@ -5278,7 +5278,7 @@
     "m_Hidden": false,
     "m_ShaderOutputName": "Alpha",
     "m_StageCapability": 2,
-    "m_Value": 0.44999998807907107,
+    "m_Value": 0.25,
     "m_DefaultValue": 1.0,
     "m_Labels": [],
     "m_LiteralMode": false

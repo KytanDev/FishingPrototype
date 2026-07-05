@@ -12,10 +12,6 @@ public class GerstnerWater : MonoBehaviour
         public float steepness;
     }
 
-    [Header("Water Surface")]
-    [SerializeField] private bool useTopOfColliderAsSurface = true;
-    [SerializeField] private Collider waterCollider;
-
     [Header("Visual Material")]
     [SerializeField] private Renderer waterRenderer;
 
@@ -35,26 +31,9 @@ public class GerstnerWater : MonoBehaviour
         SendWavesToShader();
     }
 
-    private void SendWavesToShader()
-    {
-        if (waterMaterial == null || waves == null)
-            return;
-
-        for (int i = 0; i < Mathf.Min(waves.Length, 4); i++)
-        {
-            GerstnerWave wave = waves[i];
-            Vector2 direction = wave.direction.normalized;
-
-            waterMaterial.SetVector("_Wave" + (i + 1) + "Direction", direction);
-            waterMaterial.SetFloat("_Wave" + (i + 1) + "Amplitude", wave.amplitude);
-            waterMaterial.SetFloat("_Wave" + (i + 1) + "Length", wave.waveLength);
-            waterMaterial.SetFloat("_Wave" + (i + 1) + "Speed", wave.speed);
-        }
-    }
-
     public float GetWaveHeight(Vector3 worldPosition)
     {
-        float height = GetBaseWaterHeight();
+        float height = transform.position.y;
 
         for (int i = 0; i < waves.Length; i++)
         {
@@ -75,11 +54,20 @@ public class GerstnerWater : MonoBehaviour
         return height;
     }
 
-    private float GetBaseWaterHeight()
+    private void SendWavesToShader()
     {
-        if (useTopOfColliderAsSurface && waterCollider != null)
-            return waterCollider.bounds.max.y;
+        if (waterMaterial == null || waves == null)
+            return;
 
-        return transform.position.y;
+        for (int i = 0; i < Mathf.Min(waves.Length, 4); i++)
+        {
+            GerstnerWave wave = waves[i];
+            Vector2 direction = wave.direction.normalized;
+
+            waterMaterial.SetVector("_Wave" + (i + 1) + "Direction", direction);
+            waterMaterial.SetFloat("_Wave" + (i + 1) + "Amplitude", wave.amplitude);
+            waterMaterial.SetFloat("_Wave" + (i + 1) + "Length", wave.waveLength);
+            waterMaterial.SetFloat("_Wave" + (i + 1) + "Speed", wave.speed);
+        }
     }
 }
