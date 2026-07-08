@@ -4,57 +4,42 @@ public class RodControlController : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private PlayerInputController input;
-    [SerializeField] private Transform cameraTransform;
-    [SerializeField] private Transform rodPivot;
+    [SerializeField] private Transform rodPitchPivot;
 
-    [Header("Rod Control")]
-    [SerializeField] private float yawSpeed = 120f;
-    [SerializeField] private float pitchSpeed = 90f;
+    [Header("Mouse To Rod Axis")]
+    [SerializeField] private float cursorSensitivity = 0.0025f;
 
-    [SerializeField] private float minPitch = -65f;
+    [Header("Rod Limits")]
+    [SerializeField] private float maxYaw = 65f;
+    [SerializeField] private float minPitch = -35f;
     [SerializeField] private float maxPitch = 75f;
 
-    [Header("Physics Feel")]
-    [SerializeField] private float rodWeightResistance = 0.15f;
-    [SerializeField] private float returnToCenterForce = 2f;
-
-    private float rodYaw;
-    private float rodPitch;
-
-    private Vector2 rodAngularVelocity;
-
-    public Vector3 RodForward => rodPivot.forward;
+    private Vector2 rodAxis;
 
     private void Update()
     {
         if (!PlayerState.RodControlMode)
             return;
 
-        Vector2 lookInput = input.LookInput;
+        Vector2 look = input.LookInput;
 
-        rodAngularVelocity += lookInput * Time.deltaTime;
+        // Left/right mouse = left/right rod yaw
+        rodAxis.x += look.x * cursorSensitivity;
 
-        rodAngularVelocity = Vector2.Lerp(
-            rodAngularVelocity,
-            Vector2.zero,
-            rodWeightResistance * Time.deltaTime
-        );
+        // Mouse DOWN raises rod, mouse UP lowers rod
+        rodAxis.y -= look.y * cursorSensitivity;
 
-        rodYaw += lookInput.x * yawSpeed * Time.deltaTime;
-        rodPitch -= lookInput.y * pitchSpeed * Time.deltaTime;
+        rodAxis.x = Mathf.Clamp(rodAxis.x, -1f, 1f);
+        rodAxis.y = Mathf.Clamp(rodAxis.y, -1f, 1f);
 
-        rodPitch = Mathf.Clamp(rodPitch, minPitch, maxPitch);
+        float yaw = rodAxis.x * maxYaw;
+        float pitch = Mathf.Lerp(minPitch, maxPitch, (rodAxis.y + 1f) * 0.5f);
 
-        ApplyRodRotation();
-    }
+        // Yaw only. No roll.
+        transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
 
-    private void ApplyRodRotation()
-    {
-        Quaternion cameraSpace = Quaternion.LookRotation(cameraTransform.forward, Vector3.up);
-
-        Quaternion localRodRotation =
-            Quaternion.Euler(rodPitch, rodYaw, 0f);
-
-        rodPivot.rotation = cameraSpace * localRodRotation;
+        // Pitch only. No roll.
+        if (rodPitchPivot != null)
+            rodPitchPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
     }
 }
